@@ -7,19 +7,16 @@ import pandas as pd
 
 label = ['A', 'B', 'C', 'D', 'F']
 
+# Gera a tabela de sinais
 def generate_sign_table(k):
     levels = [-1, 1]
     combinations = list(itertools.product(levels, repeat=k))
     
-    # Inverte os dados ANTES de nomear
     combinations = [list(c)[::-1] for c in combinations]
     
     factor_labels = label[:k]
     df = pd.DataFrame(combinations, columns=factor_labels)
 
-    # Agora não precisa mais fazer df.iloc[:, ::-1]
-    
-    # Adiciona colunas de interação
     for i in range(2, k+1):
         for combo in itertools.combinations(factor_labels, i):
             col_name = ''.join(combo)
@@ -28,18 +25,28 @@ def generate_sign_table(k):
     return df
 
 
-
+# Coleta as respostas de cada linha da tabela
 def get_responses(df, r):
-    y_columns = []
-    for i in range(r):
-        y_column = []
-        print(f"\n--- Coletando respostas da repetição {i+1} ---")
-        for idx, row in df.iterrows():
-            levels = ', '.join([f"{col}={row[col]}" for col in df.columns[:k]])
-            y = float(input(f"Digite a resposta para {levels}: "))
-            y_column.append(y)
-        y_columns.append(y_column)
+    y_columns = [[] for _ in range(r)]
+    print("\n--- Coletando respostas ---")
+    cont = 0
+    for idx, row in df.iterrows():
+        cont += 1
+        levels = ', '.join([f"{col}={row[col]}" for col in df.columns[:k]])
+        while True:
+            try:
+                raw = input(f"Linha {cont} {levels}: ").strip()
+                raw = raw.replace("(", "").replace(")", "")
+                values = list(map(float, raw.split(",")))
+                if len(values) != r:
+                    raise ValueError("Número incorreto de respostas.")
+                for i in range(r):
+                    y_columns[i].append(values[i])
+                break
+            except Exception as e:
+                print("Entrada inválida. Formato esperado: ex: 10, 11, 12")
     return np.array(y_columns).T  # shape: (num_combinations, r)
+
 
 def calculate_effects(df, Y_avg):
     X = df.to_numpy()
@@ -47,17 +54,17 @@ def calculate_effects(df, Y_avg):
     return effects
 
 def compute_variation(Y, effects, r, k):
-    # Soma dos quadrados dos efeitos (SSe)
+    # Soma dos quadrados dos efeitos (SSE)
     num_runs = 2 ** k
     SS_effects = num_runs * r * sum(e**2 for e in effects)
 
     # Média das respostas
     Y_avg = Y.mean(axis=1)
 
-    # Erro experimental (SSErro)
+    # Erro experimental (SSe)
     SS_error = ((Y - Y_avg[:, None]) ** 2).sum()
 
-    # Soma total dos quadrados (SST) via fórmula do enunciado
+    # Soma total dos quadrados (SST)
     SST = SS_effects + SS_error
 
     # Porção de variação explicada por cada efeito
@@ -67,11 +74,11 @@ def compute_variation(Y, effects, r, k):
 
     return SST, SS_effects, SS_error, variation_explained
 
-# Interface principal
+# Entrada inicial
 k = int(input("Digite o número de fatores (2 a 5): "))
 r = int(input("Digite o número de replicações (1 a 3): "))
 
-# Validação básica
+# Verifica limites
 assert 2 <= k <= 5, "Número de fatores deve ser entre 2 e 5."
 assert 1 <= r <= 3, "Número de replicações deve ser entre 1 e 3."
 
@@ -82,7 +89,7 @@ Y_avg = Y.mean(axis=1)
 effects = calculate_effects(df_signals, Y_avg)
 SST, SS_eff, SS_err, variation_explained = compute_variation(Y, effects, r, k)
 
-# Monta a tabela final com efeitos e % de explicação
+# Monta a tabela final com efeitos(SSA, SSB ...) e % de explicação
 final_df = df_signals.copy()
 final_df["Y médio"] = Y_avg
 effects_labels = list(df_signals.columns)
@@ -102,8 +109,10 @@ print("\n========== Efeitos e Variação Explicada ==========")
 print(result_df)
 
 print("\n========== Resumo ==========")
-print({
-    "Soma Total dos Quadrados (SST)": SST,
-    "Soma dos Quadrados dos Efeitos (SS efeitos)": SS_eff,
-    "Erro experimental (SS erro)": SS_err
-})
+print("Soma Total dos Quadrados (SST):", SST)
+print("Soma dos Quadrados dos Efeitos (SS efeitos):", SS_eff)
+print("Erro experimental (SS erro):", SS_err)
+
+
+
+
